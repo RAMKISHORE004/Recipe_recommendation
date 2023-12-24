@@ -1,0 +1,34 @@
+CREATE DEFINER=`admin`@`%` PROCEDURE `RecipeRecommUserMacros`(
+    IN calorie_val FLOAT,
+    IN protein_val FLOAT,
+    IN carbs_val FLOAT,
+    IN fats_val FLOAT
+)
+BEGIN
+	DROP TEMPORARY TABLE IF EXISTS TempRecipeSimilarity;
+    -- Create a temporary table to store recipe IDs and cosine similarity scores
+    CREATE TEMPORARY TABLE TempRecipeSimilarity (
+        recipe_id INT,
+        similarity_score FLOAT
+    );
+
+    -- Calculate cosine similarity for the given vector and the first 10 recipes
+    INSERT INTO TempRecipeSimilarity (recipe_id, similarity_score)
+    SELECT 
+        recipe_id,
+        ((calorie_val * calories_per_serving) + (protein_val * protein_per_serving) + (carbs_val * carbs_per_serving) + (fats_val * fats_per_serving)) / 
+        (SQRT(POW(calorie_val, 2) + POW(protein_val, 2) + POW(carbs_val, 2) + POW(fats_val, 2)) * 
+        SQRT(POW(calories_per_serving, 2) + POW(protein_per_serving, 2) + POW(carbs_per_serving, 2) + POW(fats_per_serving, 2)))
+        AS similarity_score
+    FROM recipe
+    LIMIT 10;
+
+    -- Fetch sorted recipes based on cosine similarity
+    SELECT r.name,t.similarity_score,r.recipe_id
+    FROM recipe r
+    JOIN TempRecipeSimilarity t ON r.recipe_id = t.recipe_id
+    ORDER BY t.similarity_score DESC limit 3;
+
+    -- Drop temporary table
+    DROP TEMPORARY TABLE IF EXISTS TempRecipeSimilarity;
+END
